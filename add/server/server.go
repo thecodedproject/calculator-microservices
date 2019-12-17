@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/thecodedproject/calculator_microservices/add/addpb"
+	"github.com/thecodedproject/calculator_microservices/add/ops"
 )
 
 type Server struct {}
@@ -13,5 +14,8 @@ func New() *Server {
 }
 
 func (s *Server) Calc(ctx context.Context, req *addpb.CalcRequest) (*addpb.CalcResponse, error) {
-	return &addpb.CalcResponse{Output: 0.0}, nil
+
+	output := ops.Add(req.Inputs)
+
+	return &addpb.CalcResponse{Output: output}, nil
 }

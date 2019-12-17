@@ -58,18 +58,43 @@ func setupClient(t *testing.T, address string) add.Client {
 	return client
 }
 
-func TestAddWithNoInputs(t *testing.T) {
+func TestAdd(t *testing.T) {
 
-	address, stop := setupServer(t)
-	defer stop()
+	tests := []struct{
+		name string
+		inputs []float64
+		actual float64
+	}{
+		{
+			name: "No inputs returns zero",
+			actual: 0.0,
+		},
+		{
+			name: "Single input returns that value",
+			inputs: []float64{2.3},
+			actual: 2.3,
+		},
+		{
+			name: "Multiple values returns sum",
+			inputs: []float64{2.3, 5.2, 1.0, 2.1},
+			actual: 10.6,
+		},
+	}
 
-	client := setupClient(t, address)
-	defer client.(*Client).rpcConn.Close()
-	ctx := context.Background()
+	for _, test := range tests {
 
-	var inputs []float64
-	actual, err := client.Calc(ctx, inputs)
-	require.NoError(t, err)
+		t.Run(test.name, func(t *testing.T) {
+			address, stop := setupServer(t)
+			defer stop()
 
-	assert.Equal(t, 0.0, actual)
+			client := setupClient(t, address)
+			defer client.(*Client).rpcConn.Close()
+			ctx := context.Background()
+
+			actual, err := client.Calc(ctx, test.inputs)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.actual, actual)
+		})
+	}
 }
