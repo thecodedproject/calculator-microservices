@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package addpb;
+
+service Add {
+    rpc Calc (CalcRequest) returns (CalcResponse) {}
+}
+
+message CalcRequest {
+	repeated double inputs = 1;
+}
+
+message CalcResponse {
+	double output = 1;
+}
