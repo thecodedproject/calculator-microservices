@@ -22,7 +22,7 @@ func IsGRPCEnabled() bool {
 }
 
 func New() (add.Client, error) {
-	return nil, nil
+	panic("not implmented")
 }
 
 func NewTestClient(conn *grpc.ClientConn) add.Client {

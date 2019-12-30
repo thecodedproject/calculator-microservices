@@ -1,9 +1,17 @@
 package local
 
-//import "add/
+import (
+	"context"
+	"github.com/thecodedproject/calculator_microservices/add"
+	"github.com/thecodedproject/calculator_microservices/add/ops"
+)
 
-type Client struct{}
+type client struct{}
 
-func (c *Client) Calc(values []float64) float64 {
-	return 0.0
+func New() (add.Client, error) {
+	return &client{}, nil
+}
+
+func (c *client) Calc(ctx context.Context, values []float64) (float64, error) {
+	return ops.Add(values), nil
 }
