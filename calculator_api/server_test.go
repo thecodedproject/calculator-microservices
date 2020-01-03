@@ -12,27 +12,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAddWithSingleInput(t *testing.T) {
-
-	in := struct {
-		Inputs []float64 `json:"inputs"`
-	}{
-		Inputs: []float64{2.0},
-	}
-	buf, err := json.Marshal(in)
-	require.NoError(t, err)
-
+func NewServerAndRouter(t *testing.T) *httprouter.Router {
 	r := httprouter.New()
+	var err error
 	_, err = New(r)
-	assert.NoError(t, err)
-
-	req, err := http.NewRequest("POST", "/add", bytes.NewBuffer(buf))
 	require.NoError(t, err)
+	return r
+}
 
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+func NewJsonRequest(t *testing.T, method string, path string, i interface{}) *http.Request {
+	buf, err := json.Marshal(i)
+	require.NoError(t, err)
+	req, err := http.NewRequest(method, path, bytes.NewBuffer(buf))
+	require.NoError(t, err)
+	return req
+}
 
-	assert.Equal(t, http.StatusOK, w.Code)
+func TestAdd(t *testing.T) {
+
+	type request struct {
+		Inputs []float64 `json:"inputs"`
+	}
 
 	type resultResp struct {
 		Value float64 `json:"value"`
@@ -44,18 +44,91 @@ func TestAddWithSingleInput(t *testing.T) {
 		Result resultResp `json:"result"`
 	}
 
-	expected := expectedResp{
-		Ok: true,
-		Err: "",
-		Result: resultResp{
-			Value: 2.0,
+	tests := []struct {
+		name string
+		req interface{}
+		status int
+		expectedRes expectedResp
+	}{
+		{
+			name: "Single input",
+			req: request{
+				Inputs: []float64{2.0},
+			},
+			status: http.StatusOK,
+			expectedRes: expectedResp{
+				Ok: true,
+				Err: "",
+				Result: resultResp{
+					Value: 2.0,
+				},
+			},
+		},
+		{
+			name: "Multiple inputs returns sum of all",
+			req: request{
+				Inputs: []float64{2.0, 3.2, 1.4, 5.0},
+			},
+			status: http.StatusOK,
+			expectedRes: expectedResp{
+				Ok: true,
+				Err: "",
+				Result: resultResp{
+					Value: 11.6,
+				},
+			},
+		},
+		{
+			name: "No inputs returns zero",
+			req: request{
+				Inputs: []float64{},
+			},
+			status: http.StatusOK,
+			expectedRes: expectedResp{
+				Ok: true,
+				Err: "",
+				Result: resultResp{
+					Value: 0.0,
+				},
+			},
+		},
+		{
+			name: "Missing inputs field returns 400",
+			req: request{},
+			status: http.StatusBadRequest,
+			expectedRes: expectedResp{
+				Ok: false,
+				Err: "Missing inputs field",
+			},
+		},
+		{
+			name: "Unknown field returns error",
+			req: struct {A int}{},
+			status: http.StatusBadRequest,
+			expectedRes: expectedResp{
+				Ok: false,
+				Err: "Request body contains unknown field \"A\"",
+			},
 		},
 	}
 
-	var actual expectedResp
+	for _, test := range tests {
 
-	err = json.Unmarshal(w.Body.Bytes(), &actual)
-	require.NoError(t, err)
+		t.Run(test.name, func(t *testing.T) {
 
-	assert.Equal(t, expected, actual)
+			req := NewJsonRequest(t, "POST", "/add", test.req)
+
+			r := NewServerAndRouter(t)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, test.status, w.Code)
+
+			var actual expectedResp
+			err := json.Unmarshal(w.Body.Bytes(), &actual)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.expectedRes, actual)
+		})
+	}
 }

@@ -1,7 +1,9 @@
 package calculator_api
 
 import (
+	"log"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -44,10 +46,41 @@ func (s *Server) handleAddPost() httprouter.Handle {
 	}
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
-		req := request{}
-		err := json.NewDecoder(r.Body).Decode(&req)
+		var req request
+		err := decodeJSONBody(w, r, &req)
 		if err != nil {
-			panic(err)
+			var mr *malformedRequest
+			if errors.As(err, &mr) {
+
+				msg, err := json.Marshal(&response{
+					Ok:false,
+					Err: mr.msg,
+				})
+				if err != nil {
+					log.Println(err.Error())
+					http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+					return
+				}
+				http.Error(w, string(msg), mr.status)
+			} else {
+				log.Println(err.Error())
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+			return
+		}
+
+		if req.Inputs == nil {
+			msg, err := json.Marshal(&response{
+				Ok:false,
+				Err: "Missing inputs field",
+			})
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+			http.Error(w, string(msg), http.StatusBadRequest)
+			return
 		}
 
 		res, err := s.addClient.Calc(r.Context(), req.Inputs)
