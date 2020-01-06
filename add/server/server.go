@@ -9,18 +9,23 @@ import (
 )
 
 type Server struct {
-	localClient add.Client
+	client add.Client
 }
 
 func New() *Server {
+	client, err := local.New()
+	if err != nil {
+		panic("Error making add local client")
+	}
+
 	return &Server{
-		local.New()
+		client: client,
 	}
 }
 
 func (s *Server) Calc(ctx context.Context, req *addpb.CalcRequest) (*addpb.CalcResponse, error) {
 
-	output, err := localClient.Calc(ctx, req.Inputs)
+	output, err := s.client.Calc(ctx, req.Inputs)
 	if err != nil {
 		return nil, err
 	}
