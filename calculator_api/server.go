@@ -14,7 +14,6 @@ import (
 
 type Server struct {
 	router *httprouter.Router
-
 	addClient add.Client
 }
 
@@ -42,7 +41,7 @@ func (s *Server) handleAddPost() httprouter.Handle {
 	type response struct {
 		Ok bool `json:"ok"`
 		Err string `json:"err"`
-		Result result `json:"result"`
+		Result *result `json:"result"`
 	}
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
@@ -85,12 +84,17 @@ func (s *Server) handleAddPost() httprouter.Handle {
 
 		res, err := s.addClient.Calc(r.Context(), req.Inputs)
 
-		json.NewEncoder(w).Encode(&response{
+		err = json.NewEncoder(w).Encode(&response{
 			Ok: true,
-			Result: result{
+			Result: &result{
 				Value: res,
 			},
 		})
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 
 	}
 }

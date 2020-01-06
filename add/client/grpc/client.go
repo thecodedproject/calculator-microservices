@@ -2,12 +2,13 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"flag"
-
-	"google.golang.org/grpc"
-
 	"github.com/thecodedproject/calculator_microservices/add"
 	"github.com/thecodedproject/calculator_microservices/add/addpb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"time"
 )
 
 var address = flag.String("add_grpc_address", "", "host:port of business gRPC service")
@@ -22,7 +23,27 @@ func IsGRPCEnabled() bool {
 }
 
 func New() (add.Client, error) {
-	panic("not implmented")
+	conn, err := grpc.Dial(*address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	for {
+		if conn.GetState() == connectivity.Ready {
+			break
+		}
+		if !conn.WaitForStateChange(ctx, conn.GetState()) {
+			return nil, errors.New("grpc timeout whilst connecting")
+		}
+	}
+
+	return &Client{
+		rpcConn: conn,
+		rpcClient: addpb.NewAddClient(conn),
+	}, nil
 }
 
 func NewTestClient(conn *grpc.ClientConn) add.Client {
@@ -33,7 +54,6 @@ func NewTestClient(conn *grpc.ClientConn) add.Client {
 }
 
 func (c *Client) Calc(ctx context.Context, values []float64) (float64, error) {
-
 	res, err := c.rpcClient.Calc(ctx, &addpb.CalcRequest{
 		Inputs: values,
 	})
