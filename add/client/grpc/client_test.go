@@ -17,12 +17,13 @@ import (
 	"github.com/thecodedproject/calculator_microservices/add/server"
 )
 
-func setupServer(t *testing.T) (string, func()) {
+func setupServer(t *testing.T) (string) {
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
 	grpcSrv := grpc.NewServer()
+	t.Cleanup(grpcSrv.GracefulStop)
 
 	addSrv := server.New()
 	addpb.RegisterAddServer(grpcSrv, addSrv)
@@ -32,13 +33,13 @@ func setupServer(t *testing.T) (string, func()) {
 		require.NoError(t, err)
 	}()
 
-	return listener.Addr().String(), func() {
-		grpcSrv.GracefulStop()
-	}
+	return listener.Addr().String()
 }
 
-func setupClient(t *testing.T, address string) add.Client {
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+func setupClient(t *testing.T) add.Client {
+
+	addr := setupServer(t)
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -84,10 +85,7 @@ func TestAdd(t *testing.T) {
 	for _, test := range tests {
 
 		t.Run(test.name, func(t *testing.T) {
-			address, stop := setupServer(t)
-			defer stop()
-
-			client := setupClient(t, address)
+			client := setupClient(t)
 			defer client.(*Client).rpcConn.Close()
 			ctx := context.Background()
 
